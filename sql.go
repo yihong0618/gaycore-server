@@ -19,18 +19,23 @@ type Audio struct {
 	Audio_name    string `json:"audio_name" form:"audio_name"`
 	Audio_url     string `json:"audio_url" form:"audio_url"`
 	Audio_mp3_url string `json:"audio_mp3_url" form:"audio_mp3_url"`
+}
+
+type Playinfo struct {
     Audio_flow_info string `json:"audio_flow_info" form:"audio_flow_info"`
     Audio_djs string `json:"audio_djs" form:"audio_djs"`
 }
 
-func OneAudioGet(c *gin.Context) {
+
+
+func AudioPlayinfoGet(c *gin.Context) {
 	var (
-		audio  Audio
+		playinfo  Playinfo
 		result gin.H
 	)
 	audio_id := c.Param("audio_id")
-	row := db.QueryRow("select audio_id, audio_name, audio_url, audio_mp3_url, audio_flow_info, audio_djs from gcore_audio where audio_id = ?", audio_id)
-	err := row.Scan(&audio.Audio_id, &audio.Audio_name, &audio.Audio_url, &audio.Audio_mp3_url, &audio.Audio_flow_info, &audio.Audio_djs)
+	row := db.QueryRow("select audio_flow_info, audio_djs from gcore_audio where audio_id = ?", audio_id)
+	err := row.Scan(&playinfo.Audio_flow_info, &playinfo.Audio_djs)
 	if err != nil {
 		fmt.Println(err.Error())
 
@@ -39,9 +44,8 @@ func OneAudioGet(c *gin.Context) {
 			"count":  0,
 		}
 	} else {
-		fmt.Println(audio)
 		result = gin.H{
-			"result": audio,
+			"result": playinfo,
 			"count":  1,
 		}
 	}
@@ -55,12 +59,12 @@ func RecentAudiosGet(c *gin.Context) {
 	)
 	page, err := strconv.Atoi(c.DefaultQuery("page", "0"))
 	offset := page * 10
-	rows, err := db.Query("select audio_id, audio_name, audio_url, audio_mp3_url, audio_flow_info, audio_djs from gcore_audio order by audio_date desc limit 10 offset ?", offset)
+	rows, err := db.Query("select audio_id, audio_name, audio_url, audio_mp3_url from gcore_audio order by audio_date desc limit 10 offset ?", offset)
     if err != nil {
         fmt.Println(err.Error())
     }
 	for rows.Next() {
-		err := rows.Scan(&audio.Audio_id, &audio.Audio_name, &audio.Audio_url, &audio.Audio_mp3_url, &audio.Audio_flow_info, &audio.Audio_djs)
+		err := rows.Scan(&audio.Audio_id, &audio.Audio_name, &audio.Audio_url, &audio.Audio_mp3_url)
 		audios = append(audios, audio)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -86,7 +90,7 @@ func GaycoreHandler(sql string) gin.HandlerFunc {
         fmt.Println(err.Error())
     }
 	for rows.Next() {
-		err := rows.Scan(&audio.Audio_id, &audio.Audio_name, &audio.Audio_url, &audio.Audio_mp3_url, &audio.Audio_flow_info, &audio.Audio_djs)
+		err := rows.Scan(&audio.Audio_id, &audio.Audio_name, &audio.Audio_url, &audio.Audio_mp3_url)
 		audios = append(audios, audio)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -115,7 +119,7 @@ func main() {
     DJS_XIMENG_SQL := BASE_SQL + " where audio_djs like '%西蒙%' order by audio_date desc limit 10 offset ?"
     CATE_WOW_SQL := BASE_SQL + " where audio_name like '%魔兽%' order by audio_date desc limit 10 offset ?"
 	route := gin.Default()
-	route.GET("/audio/:audio_id", OneAudioGet)
+	route.GET("/audio/:audio_id", AudioPlayinfoGet)
     route.GET("/audios/recent", GaycoreHandler(RECENT_SQL))
     route.GET("audios/hot/comment", GaycoreHandler(HOT_COMMENT_SQL))
     route.GET("audios/hot/like", GaycoreHandler(HOT_LIKE_SQL))
