@@ -11,7 +11,7 @@ import (
 	"net/http"
 )
 
-const BASE_SQL string =  "select audio_id, audio_name, audio_url, audio_mp3_url, audio_flow_info, audio_djs from gcore_audio"
+const BASE_SQL string =  "select audio_id, audio_name, audio_url, audio_mp3_url from gcore_audio"
 var db, err = sql.Open("mysql", "root@tcp(127.0.0.1:3306)/gcore")
 
 type Audio struct {
@@ -104,6 +104,44 @@ func GaycoreHandler(sql string) gin.HandlerFunc {
     return gin.HandlerFunc(fn)
 }
 
+func GaycoreParamHandler(param, sql, sql_count string) gin.HandlerFunc {
+    fn := func(c *gin.Context){
+	var (
+        count int
+		audio  Audio
+		audios []Audio
+	)
+	page, err := strconv.Atoi(c.DefaultQuery("page", "0"))
+    if err != nil {
+        fmt.Println(err.Error())
+    }
+	audio_param := c.Param(param)
+	offset := page * 10
+    row := db.QueryRow(sql_count, audio_param)
+    err = row.Scan(&count)
+    if err != nil {
+        fmt.Println(err.Error())
+    }
+	rows, err := db.Query(sql, audio_param, offset)
+    if err != nil {
+        fmt.Println(err.Error())
+    }
+	for rows.Next() {
+		err := rows.Scan(&audio.Audio_id, &audio.Audio_name, &audio.Audio_url, &audio.Audio_mp3_url)
+		audios = append(audios, audio)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}
+	defer rows.Close()
+	c.JSON(http.StatusOK, gin.H{
+		"result": audios,
+		"count":  count,
+	})}
+    return gin.HandlerFunc(fn)
+}
+
+
 func main() {
 	if err != nil {
 		fmt.Println(err.Error())
@@ -116,14 +154,20 @@ func main() {
     RECENT_SQL := BASE_SQL + " order by audio_date desc limit 10 offset ?"
     HOT_COMMENT_SQL := BASE_SQL + " order by audio_comment desc limit 10 offset ?"
     HOT_LIKE_SQL := BASE_SQL + " order by audio_like desc limit 10 offset ?"
-    DJS_XIMENG_SQL := BASE_SQL + " where audio_djs like '%西蒙%' order by audio_date desc limit 10 offset ?"
-    CATE_WOW_SQL := BASE_SQL + " where audio_name like '%魔兽%' order by audio_date desc limit 10 offset ?"
+    CATEGORY_SQL := BASE_SQL + " where substring_index(audio_cate, '/', -1) = ? order by audio_date desc limit 10 offset ?"
+    CATEGORY_COUNT_SQL := "select count(*) from gcore_audio where audio_cate = ?"
+    DJS_SQL := BASE_SQL + " where audio_djs like concat('%', ?, '%') order by audio_like desc limit 10 offset ?"
+    DJS_COUNT_SQL := "select count(*) from gcore_audio where audio_djs like concat('%', ?, '%')"
+    TOPIC_SQL := BASE_SQL + " where audio_name like concat('%', ?, '%') order by audio_date limit 10 offset ?"
+    TOPIC_COUNT_SQL := "select count(*) from gcore_audio where audio_name like concat('%', ?, '%')"
+
 	route := gin.Default()
 	route.GET("/audio/:audio_id", AudioPlayinfoGet)
     route.GET("/audios/recent", GaycoreHandler(RECENT_SQL))
     route.GET("audios/hot/comment", GaycoreHandler(HOT_COMMENT_SQL))
     route.GET("audios/hot/like", GaycoreHandler(HOT_LIKE_SQL))
-    route.GET("audios/djs/ximeng", GaycoreHandler(DJS_XIMENG_SQL))
-    route.GET("audios/cate/wow", GaycoreHandler(CATE_WOW_SQL))
+    route.GET("audios/category/:audio_cate", GaycoreParamHandler("audio_cate", CATEGORY_SQL, CATEGORY_COUNT_SQL))
+    route.GET("audios/djs/:djs_name", GaycoreParamHandler("djs_name", DJS_SQL, DJS_COUNT_SQL))
+    route.GET("audios/topic/:audio_topic", GaycoreParamHandler("audio_topic", TOPIC_SQL, TOPIC_COUNT_SQL))
 	route.Run(":3000")
 }
