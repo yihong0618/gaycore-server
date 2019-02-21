@@ -142,6 +142,30 @@ func GaycoreParamHandler(param, sql, sql_count string) gin.HandlerFunc {
 }
 
 
+
+func AudiosDjsGet(c *gin.Context) {
+	var (
+        dj string
+        djs []string
+	)
+	rows, err := db.Query("select audio_djs from gcore_audio")
+    if err != nil {
+        fmt.Println(err.Error())
+    }
+	for rows.Next() {
+		err := rows.Scan(&dj)
+		djs = append(djs, dj)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}
+	defer rows.Close()
+	c.JSON(http.StatusOK, gin.H{
+		"result": djs,
+	})
+}
+
+
 func main() {
 	if err != nil {
 		fmt.Println(err.Error())
@@ -169,5 +193,6 @@ func main() {
     route.GET("audios/category/:audio_cate", GaycoreParamHandler("audio_cate", CATEGORY_SQL, CATEGORY_COUNT_SQL))
     route.GET("audios/djs/:djs_name", GaycoreParamHandler("djs_name", DJS_SQL, DJS_COUNT_SQL))
     route.GET("audios/topic/:audio_topic", GaycoreParamHandler("audio_topic", TOPIC_SQL, TOPIC_COUNT_SQL))
+    route.GET("audios/alldjs", AudiosDjsGet)
 	route.Run(":3000")
 }
